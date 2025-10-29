@@ -21,11 +21,11 @@
 
 ### Basic Order Management
 
-- [ ] Create Order and OrderItem models
-- [ ] Add "create order from cart" endpoint
-- [ ] Implement order status tracking
-- [ ] Add order history endpoint for users
-- [ ] Add order details endpoint
+- [x] Create Order and OrderItem models
+- [x] Add "create order from cart" endpoint
+- [x] Implement order status tracking
+- [x] Add order history endpoint for users
+- [x] Add order details endpoint
 
 ## 🚀 Phase 2: Core E-commerce Features
 
@@ -116,6 +116,9 @@
 - User management
 - Shopping cart system with CRUD operations
 - Cart validation and stock checking
+- Order and OrderItem models with status tracking
+- Order management API (create from cart, list, view, cancel)
+- Stock reduction on order creation
 - Flask-RESTX documentation at `/docs/`
 - JWT token authentication
 - Basic error handling
@@ -131,6 +134,7 @@
 - Consider implementing product bundles/packages
 - Think about discount codes and promotions system
 - Plan for customer support ticket system integration
+- Setup proper unit-testing
 
 ---
 
