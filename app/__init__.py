@@ -24,11 +24,13 @@ def create_app():
     from app.routes.products import products_ns
     from app.routes.users import users_ns
     from app.routes.categories import categories_ns
-    
+    from app.routes.carts import carts_ns
+
     api.add_namespace(auth_ns)
     api.add_namespace(products_ns)
     api.add_namespace(users_ns)
     api.add_namespace(categories_ns)
+    api.add_namespace(carts_ns)
 
     @app.route('/health')
     def health_check():

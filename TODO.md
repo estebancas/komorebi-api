@@ -12,12 +12,12 @@
 
 ### Shopping Cart System
 
-- [ ] Create Cart and CartItem models
-- [ ] Add cart CRUD endpoints (add, remove, update quantities)
-- [ ] Implement cart persistence for logged-in users
+- [x] Create Cart and CartItem models
+- [x] Add cart CRUD endpoints (add, remove, update quantities)
+- [x] Implement cart persistence for logged-in users
 - [ ] Add guest cart with session management
-- [ ] Implement cart totals calculation
-- [ ] Add cart expiration/cleanup logic
+- [x] Implement cart totals calculation
+- [x] Add cart expiration/cleanup logic
 
 ### Basic Order Management
 
@@ -112,7 +112,10 @@
 
 - User authentication (register/login)
 - Product CRUD with pagination, search, and sorting
+- Category management with CRUD endpoints
 - User management
+- Shopping cart system with CRUD operations
+- Cart validation and stock checking
 - Flask-RESTX documentation at `/docs/`
 - JWT token authentication
 - Basic error handling
@@ -125,14 +128,9 @@
 
 - Consider implementing webhook support for payment processing
 - Think about multi-currency support for international sales
-- Plan for inventory management across multiple warehouses
 - Consider implementing product bundles/packages
 - Think about discount codes and promotions system
 - Plan for customer support ticket system integration
-
-## 🎯 Next Session Focus
-
-**Recommended next task**: Start with Categories system as it's foundational for product organization and user experience.
 
 ---
 
