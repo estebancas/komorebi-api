@@ -31,11 +31,11 @@
 
 ### User Address Management
 
-- [ ] Create Address model
-- [ ] Add address CRUD endpoints
-- [ ] Support multiple addresses per user
-- [ ] Add default address functionality
-- [ ] Implement address validation
+- [x] Create Address model
+- [x] Add address CRUD endpoints
+- [x] Support multiple addresses per user
+- [x] Add default address functionality
+- [x] Implement address validation
 
 ### Enhanced Inventory Management
 
@@ -46,10 +46,11 @@
 
 ### Payment Processing Foundation
 
-- [ ] Create Payment model
-- [ ] Add payment method management
-- [ ] Prepare payment integration structure (Stripe/PayPal)
-- [ ] Add payment status tracking
+- [x] Create Payment model
+- [x] Add payment method management
+- [x] Prepare payment integration structure (Stripe/PayPal)
+- [x] Add payment status tracking
+- [ ] Support for SINPE/Bank account transactions
 
 ## 📈 Phase 3: Advanced Features
 
@@ -121,6 +122,10 @@
 - Order and OrderItem models with status tracking
 - Order management API (create from cart, list, view, cancel)
 - Stock reduction on order creation
+- User address management (CRUD, multiple addresses, default address, validation)
+- Payment model (transaction tracking, status management, refunds)
+- Payment method management (saved cards, CRUD API, default management)
+- Payment gateway integration structure (Stripe-ready, PayPal-ready)
 - Flask-RESTX documentation at `/docs/`
 - JWT token authentication
 - Basic error handling
@@ -131,6 +136,16 @@
 
 ## 💡 Notes & Ideas
 
+### Payment Integration Next Steps
+
+- Implement actual Stripe API integration for charging saved payment methods
+- Add Stripe webhook handlers for payment events (success, failure, refunds)
+- Implement PayPal integration (future)
+- Add payment retry logic for failed transactions
+- Create admin payment dashboard
+
+### General Ideas
+
 - Consider implementing webhook support for payment processing
 - Think about multi-currency support for international sales
 - Consider implementing product bundles/packages
@@ -140,5 +155,5 @@
 
 ---
 
-_Last updated: 28/10/25_
+_Last updated: 29/10/25_
 _Remember to update this file as you complete tasks and add new requirements!_

@@ -26,6 +26,8 @@ def create_app():
     from app.routes.categories import categories_ns
     from app.routes.carts import carts_ns
     from app.routes.orders import orders_ns
+    from app.routes.addresses import addresses_ns
+    from app.routes.payment_methods import payment_methods_ns
 
     api.add_namespace(auth_ns)
     api.add_namespace(products_ns)
@@ -33,6 +35,8 @@ def create_app():
     api.add_namespace(categories_ns)
     api.add_namespace(carts_ns)
     api.add_namespace(orders_ns)
+    api.add_namespace(addresses_ns)
+    api.add_namespace(payment_methods_ns)
 
     @app.route('/health')
     def health_check():
