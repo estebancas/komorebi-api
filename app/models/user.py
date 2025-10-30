@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 import bcrypt
 from email_validator import validate_email, EmailNotValidError
+from google.cloud.firestore_v1.base_query import FieldFilter
 from app.services.firebase_service import get_db
 from app.models.role import Role
 
@@ -103,7 +104,7 @@ class User:
     @classmethod
     def get_by_email(cls, email: str) -> Optional['User']:
         db = get_db()
-        docs = db.collection('users').where('email', '==', email.lower()).limit(1).stream()
+        docs = db.collection('users').where(filter=FieldFilter('email', '==', email.lower())).limit(1).stream()
 
         for doc in docs:
             return cls.from_dict(doc.to_dict(), doc.id)

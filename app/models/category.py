@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
+from google.cloud.firestore_v1.base_query import FieldFilter
 from app.services.firebase_service import get_db
 
 
@@ -77,7 +78,7 @@ class Category:
     def _check_slug_exists(self, slug: str) -> bool:
         """Check if slug already exists"""
         db = get_db()
-        existing = db.collection('categories').where('slug', '==', slug).limit(1).get()
+        existing = db.collection('categories').where(filter=FieldFilter('slug', '==', slug)).limit(1).get()
         return len(existing) > 0
 
     @classmethod
@@ -92,7 +93,7 @@ class Category:
     @classmethod
     def get_by_slug(cls, slug: str) -> Optional['Category']:
         db = get_db()
-        docs = db.collection('categories').where('slug', '==', slug).limit(1).get()
+        docs = db.collection('categories').where(filter=FieldFilter('slug', '==', slug)).limit(1).get()
 
         if docs:
             doc = docs[0]
@@ -208,7 +209,7 @@ class Category:
         # Check if category has products
         from app.models.product import Product
         db = get_db()
-        products = db.collection('products').where('category', '==', self.name).limit(1).get()
+        products = db.collection('products').where(filter=FieldFilter('category', '==', self.name)).limit(1).get()
         if products:
             raise ValueError("Cannot delete category with associated products.")
 

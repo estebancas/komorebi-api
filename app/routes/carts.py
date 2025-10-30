@@ -3,9 +3,31 @@ from flask_restx import Namespace, Resource, fields
 from app.models.cart import Cart
 from app.models.product import Product
 from app.middleware.auth import jwt_required, optional_jwt
-from datetime import datetime, timezone
+from app.middleware.guest_session import guest_session_handler, get_cart_identifier
 
 carts_ns = Namespace('carts', description='Shopping cart operations', path='/carts')
+
+
+def get_or_create_cart():
+    """
+    Get or create cart for current user or guest session.
+    Returns tuple: (cart, is_authenticated)
+    """
+    cart_id, is_authenticated = get_cart_identifier()
+
+    if is_authenticated:
+        # Get or create cart for authenticated user
+        cart = Cart.get_or_create_for_user(cart_id)
+    else:
+        # Get or create cart for guest
+        # For guests, we need to find cart by searching for carts with user_id = guest_session_id
+        cart = Cart.get_by_user_id(cart_id)
+        if not cart:
+            # Create new guest cart
+            cart = Cart(user_id=cart_id)
+            cart.save()
+
+    return cart, is_authenticated
 
 # Define models for request/response documentation
 cart_item_variant_model = carts_ns.model('CartItemVariant', {
@@ -65,33 +87,28 @@ cart_validation_model = carts_ns.model('CartValidation', {
 @carts_ns.route('/mine')
 class MyCart(Resource):
     @carts_ns.doc('get_my_cart',
-                  security='Bearer',
-                  description='Get the current user\'s cart. Requires authentication.')
+                  description='Get the current cart. Works for both authenticated users and guests.')
     @carts_ns.marshal_with(cart_summary_model)
-    @jwt_required
+    @optional_jwt
+    @guest_session_handler
     def get(self):
-        """Get current user's cart"""
+        """Get current cart (user or guest)"""
         try:
-            user = g.current_user
-
-            # Get or create cart for user
-            cart = Cart.get_or_create_for_user(user.id)
-
-            return cart.to_dict(), 200
+            cart, _ = get_or_create_cart()
+            res = cart.to_dict(), 200
+            return res
 
         except Exception as e:
             carts_ns.abort(500, f'Failed to retrieve cart: {str(e)}')
 
     @carts_ns.doc('clear_my_cart',
-                  security='Bearer',
-                  description='Clear all items from the current user\'s cart.')
-    @jwt_required
+                  description='Clear all items from the current cart.')
+    @optional_jwt
+    @guest_session_handler
     def delete(self):
         """Clear all items from cart"""
         try:
-            user = g.current_user
-            cart = Cart.get_or_create_for_user(user.id)
-
+            cart, _ = get_or_create_cart()
             cart.clear_items()
             cart.save()
 
@@ -104,15 +121,14 @@ class MyCart(Resource):
 @carts_ns.route('/items')
 class CartItems(Resource):
     @carts_ns.doc('add_item_to_cart',
-                  security='Bearer',
-                  description='Add an item to the cart. If item already exists with same variant, quantity will be increased.')
+                  description='Add an item to the cart. Works for both authenticated users and guests.')
     @carts_ns.expect(add_item_request_model, validate=True)
     @carts_ns.marshal_with(cart_summary_model)
-    @jwt_required
+    @optional_jwt
+    @guest_session_handler
     def post(self):
         """Add item to cart"""
         try:
-            user = g.current_user
             data = request.json
 
             # Validate product exists
@@ -131,7 +147,7 @@ class CartItems(Resource):
                     carts_ns.abort(400, f'Insufficient stock. Available: {product.stock}')
 
             # Get or create cart
-            cart = Cart.get_or_create_for_user(user.id)
+            cart, _ = get_or_create_cart()
 
             # Add item to cart
             variant = data.get('variant')
@@ -155,20 +171,19 @@ class CartItems(Resource):
 @carts_ns.param('item_id', 'The cart item identifier')
 class CartItemResource(Resource):
     @carts_ns.doc('update_cart_item',
-                  security='Bearer',
                   description='Update cart item quantity. Set quantity to 0 to remove item.')
     @carts_ns.expect(update_item_request_model, validate=True)
     @carts_ns.marshal_with(cart_summary_model)
-    @jwt_required
+    @optional_jwt
+    @guest_session_handler
     def put(self, item_id):
         """Update cart item quantity"""
         try:
-            user = g.current_user
             data = request.json
             new_quantity = data['quantity']
 
             # Get cart
-            cart = Cart.get_or_create_for_user(user.id)
+            cart, _ = get_or_create_cart()
 
             # Find the item
             item = None
@@ -201,15 +216,14 @@ class CartItemResource(Resource):
             carts_ns.abort(500, f'Failed to update cart item: {str(e)}')
 
     @carts_ns.doc('remove_cart_item',
-                  security='Bearer',
                   description='Remove an item from the cart.')
     @carts_ns.marshal_with(cart_summary_model)
-    @jwt_required
+    @optional_jwt
+    @guest_session_handler
     def delete(self, item_id):
         """Remove item from cart"""
         try:
-            user = g.current_user
-            cart = Cart.get_or_create_for_user(user.id)
+            cart, _ = get_or_create_cart()
 
             if not cart.remove_item(item_id):
                 carts_ns.abort(404, 'Cart item not found')
@@ -225,15 +239,14 @@ class CartItemResource(Resource):
 @carts_ns.route('/validate')
 class CartValidation(Resource):
     @carts_ns.doc('validate_cart',
-                  security='Bearer',
                   description='Validate cart items against current product stock.')
     @carts_ns.marshal_with(cart_validation_model)
-    @jwt_required
+    @optional_jwt
+    @guest_session_handler
     def post(self):
         """Validate cart items (stock availability)"""
         try:
-            user = g.current_user
-            cart = Cart.get_or_create_for_user(user.id)
+            cart, _ = get_or_create_cart()
 
             if cart.is_empty():
                 return {
@@ -260,3 +273,61 @@ class CartValidation(Resource):
 
         except Exception as e:
             carts_ns.abort(500, f'Failed to validate cart: {str(e)}')
+
+
+@carts_ns.route('/merge')
+class CartMerge(Resource):
+    @carts_ns.doc('merge_guest_cart',
+                  security='Bearer',
+                  description='Merge guest cart into user cart after login. Guest cart items are added to user cart.')
+    @carts_ns.marshal_with(cart_summary_model)
+    @jwt_required
+    @guest_session_handler
+    def post(self):
+        """Merge guest cart into user cart"""
+        try:
+            user = g.current_user
+            guest_session_id = g.guest_session_id
+
+            # Get user's cart
+            user_cart = Cart.get_or_create_for_user(user.id)
+
+            # Get guest cart (if exists)
+            guest_cart = Cart.get_by_user_id(guest_session_id)
+
+            if not guest_cart or guest_cart.is_empty():
+                # No guest cart or empty, just return user cart
+                return user_cart.to_dict(), 200
+
+            # Merge guest cart items into user cart
+            merged_count = 0
+            for guest_item in guest_cart.items:
+                # Check if item exists in user cart
+                existing_item = user_cart.find_item(guest_item.product_id, guest_item.variant)
+
+                if existing_item:
+                    # Update quantity
+                    existing_item.quantity += guest_item.quantity
+                else:
+                    # Add new item
+                    user_cart.add_item(
+                        product_id=guest_item.product_id,
+                        product_name=guest_item.product_name,
+                        price=guest_item.price_at_addition,
+                        quantity=guest_item.quantity,
+                        variant=guest_item.variant
+                    )
+                merged_count += 1
+
+            # Save user cart
+            user_cart.save()
+
+            # Clear guest cart
+            guest_cart.clear_items()
+            guest_cart.mark_as_checked_out()  # Mark as checked out to archive it
+            guest_cart.save()
+
+            return user_cart.to_dict(), 200
+
+        except Exception as e:
+            carts_ns.abort(500, f'Failed to merge carts: {str(e)}')

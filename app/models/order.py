@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 import random
 import string
+from google.cloud.firestore_v1.base_query import FieldFilter
 from app.services.firebase_service import get_db
 from app.models.order_item import OrderItem
 
@@ -181,7 +182,7 @@ class Order:
         """Get order by order number"""
         db = get_db()
         docs = db.collection('orders')\
-            .where('order_number', '==', order_number)\
+            .where(filter=FieldFilter('order_number', '==', order_number))\
             .limit(1)\
             .stream()
 
@@ -194,7 +195,7 @@ class Order:
                        offset: Optional[int] = None) -> List['Order']:
         """Get all orders for a user"""
         db = get_db()
-        query = db.collection('orders').where('user_id', '==', user_id)
+        query = db.collection('orders').where(filter=FieldFilter('user_id', '==', user_id))
 
         docs = query.stream()
         orders = [cls.from_dict(doc.to_dict(), doc.id) for doc in docs]
@@ -217,7 +218,7 @@ class Order:
         query = db.collection('orders')
 
         if status:
-            query = query.where('status', '==', status)
+            query = query.where(filter=FieldFilter('status', '==', status))
 
         docs = query.stream()
         orders = [cls.from_dict(doc.to_dict(), doc.id) for doc in docs]
@@ -236,7 +237,7 @@ class Order:
     def count_by_user(cls, user_id: str) -> int:
         """Count total orders for a user"""
         db = get_db()
-        docs = db.collection('orders').where('user_id', '==', user_id).stream()
+        docs = db.collection('orders').where(filter=FieldFilter('user_id', '==', user_id)).stream()
         return len(list(docs))
 
     def delete(self) -> bool:

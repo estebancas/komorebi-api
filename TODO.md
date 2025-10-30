@@ -15,7 +15,7 @@
 - [x] Create Cart and CartItem models
 - [x] Add cart CRUD endpoints (add, remove, update quantities)
 - [x] Implement cart persistence for logged-in users
-- [ ] Add guest cart with session management
+- [x] Add guest cart with session management
 - [x] Implement cart totals calculation
 - [x] Add cart expiration/cleanup logic
 
@@ -116,6 +116,8 @@
 - User management
 - Shopping cart system with CRUD operations
 - Cart validation and stock checking
+- Guest cart with session management
+- Cart merge on login
 - Order and OrderItem models with status tracking
 - Order management API (create from cart, list, view, cancel)
 - Stock reduction on order creation
@@ -125,7 +127,7 @@
 
 ### 🔄 In Progress
 
-- None currently
+-
 
 ## 💡 Notes & Ideas
 

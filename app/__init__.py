@@ -46,4 +46,20 @@ def create_app():
             'user': g.current_user.to_dict()
         }), 200
 
+    # After request handler to set guest session cookie
+    @app.after_request
+    def set_guest_session_cookie(response):
+        """Set guest session cookie if needed after response is ready"""
+        if hasattr(g, 'set_guest_cookie') and g.set_guest_cookie:
+            if hasattr(g, 'guest_session_id'):
+                print(f"[DEBUG] after_request: Setting guest cookie: {g.guest_session_id}")
+                response.set_cookie(
+                    'guest_session_id',
+                    g.guest_session_id,
+                    max_age=30*24*60*60,  # 30 days
+                    httponly=True,
+                    samesite='Lax'
+                )
+        return response
+
     return app

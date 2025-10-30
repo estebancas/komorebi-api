@@ -1,5 +1,6 @@
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List
+from google.cloud.firestore_v1.base_query import FieldFilter
 from app.services.firebase_service import get_db
 from app.models.cart_item import CartItem
 
@@ -104,8 +105,8 @@ class Cart:
         """Get active cart for a user"""
         db = get_db()
         docs = db.collection('carts')\
-            .where('user_id', '==', user_id)\
-            .where('status', '==', cls.STATUS_ACTIVE)\
+            .where(filter=FieldFilter('user_id', '==', user_id))\
+            .where(filter=FieldFilter('status', '==', cls.STATUS_ACTIVE))\
             .limit(1)\
             .stream()
 

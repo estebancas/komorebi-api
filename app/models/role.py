@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
+from google.cloud.firestore_v1.base_query import FieldFilter
 from app.services.firebase_service import get_db
 
 
@@ -70,8 +71,8 @@ class Role:
     @classmethod
     def get_by_name(cls, name: str) -> Optional['Role']:
         db = get_db()
-        docs = db.collection('roles').where('name', '==', name.strip()).limit(1).stream()
-        
+        docs = db.collection('roles').where(filter=FieldFilter('name', '==', name.strip())).limit(1).stream()
+
         for doc in docs:
             return cls.from_dict(doc.to_dict(), doc.id)
         return None
