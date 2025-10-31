@@ -543,3 +543,167 @@ class OrderPaymentConfirmation(Resource):
 
         except Exception as e:
             orders_ns.abort(500, f'Failed to confirm payment: {str(e)}')
+
+
+# Admin order status update model
+update_status_model = orders_ns.model('UpdateOrderStatus', {
+    'status': fields.String(required=True, description='New order status (pending, processing, shipped, delivered, cancelled, refunded)'),
+    'admin_notes': fields.String(required=False, description='Admin notes about the status change')
+})
+
+
+@orders_ns.route('/<string:order_id>/status')
+@orders_ns.param('order_id', 'The order identifier')
+class OrderStatusUpdate(Resource):
+    @orders_ns.doc('update_order_status',
+                   description='Admin endpoint to update order status. Requires admin role.',
+                   security='Bearer Auth')
+    @jwt_required
+    @admin_required
+    @orders_ns.expect(update_status_model, validate=True)
+    @orders_ns.marshal_with(order_model)
+    def put(self, order_id):
+        """Update order status (admin only)"""
+        data = request.json
+        new_status = data.get('status')
+        admin_notes = data.get('admin_notes')
+        admin_user = g.current_user
+
+        # Get order
+        order = Order.get_by_id(order_id)
+
+        if not order:
+            orders_ns.abort(404, 'Order not found')
+
+        # Validate status
+        valid_statuses = [
+            Order.STATUS_PENDING,
+            Order.STATUS_PROCESSING,
+            Order.STATUS_SHIPPED,
+            Order.STATUS_DELIVERED,
+            Order.STATUS_CANCELLED,
+            Order.STATUS_REFUNDED
+        ]
+
+        if new_status not in valid_statuses:
+            orders_ns.abort(400, f'Invalid status. Valid options: {", ".join(valid_statuses)}')
+
+        # Apply status change with appropriate method
+        if new_status == Order.STATUS_PROCESSING:
+            order.mark_as_processing()
+        elif new_status == Order.STATUS_SHIPPED:
+            order.mark_as_shipped()
+        elif new_status == Order.STATUS_DELIVERED:
+            order.mark_as_delivered()
+        elif new_status == Order.STATUS_CANCELLED:
+            if not order.can_cancel():
+                orders_ns.abort(400, f'Cannot cancel order with current status: {order.status}')
+            order.mark_as_cancelled(reason=admin_notes or 'Cancelled by admin')
+        elif new_status == Order.STATUS_REFUNDED:
+            order.mark_as_refunded()
+        else:
+            # For pending or other status, just update directly
+            order.status = new_status
+            order.updated_at = datetime.now(timezone.utc)
+
+        # Add admin notes if provided
+        if admin_notes and new_status != Order.STATUS_CANCELLED:
+            status_change_note = f"Status changed to {new_status}: {admin_notes}"
+            if order.admin_notes:
+                order.admin_notes += f"\n{status_change_note}"
+            else:
+                order.admin_notes = status_change_note
+
+        order.save()
+
+        return order.to_dict(), 200
+
+
+# Admin tracking number update model
+update_tracking_model = orders_ns.model('UpdateTracking', {
+    'tracking_number': fields.String(required=True, description='Shipping tracking number'),
+    'mark_as_shipped': fields.Boolean(required=False, default=True, description='Automatically mark order as shipped (default: true)')
+})
+
+
+@orders_ns.route('/<string:order_id>/tracking')
+@orders_ns.param('order_id', 'The order identifier')
+class OrderTrackingUpdate(Resource):
+    @orders_ns.doc('update_tracking_number',
+                   description='Admin endpoint to update order tracking number. Optionally marks order as shipped. Requires admin role.',
+                   security='Bearer Auth')
+    @jwt_required
+    @admin_required
+    @orders_ns.expect(update_tracking_model, validate=True)
+    @orders_ns.marshal_with(order_model)
+    def put(self, order_id):
+        """Update order tracking number (admin only)"""
+        data = request.json
+        tracking_number = data.get('tracking_number', '').strip()
+        mark_as_shipped = data.get('mark_as_shipped', True)
+
+        if not tracking_number:
+            orders_ns.abort(400, 'tracking_number is required')
+
+        # Get order
+        order = Order.get_by_id(order_id)
+
+        if not order:
+            orders_ns.abort(404, 'Order not found')
+
+        # Update tracking number and optionally mark as shipped
+        if mark_as_shipped:
+            order.mark_as_shipped(tracking_number=tracking_number)
+        else:
+            order.tracking_number = tracking_number
+            order.updated_at = datetime.now(timezone.utc)
+
+        order.save()
+
+        return order.to_dict(), 200
+
+
+# Admin notes update model
+update_admin_notes_model = orders_ns.model('UpdateAdminNotes', {
+    'admin_notes': fields.String(required=True, description='Admin notes for internal use')
+})
+
+
+@orders_ns.route('/<string:order_id>/admin-notes')
+@orders_ns.param('order_id', 'The order identifier')
+class OrderAdminNotesUpdate(Resource):
+    @orders_ns.doc('update_admin_notes',
+                   description='Admin endpoint to add or update admin notes on an order. Requires admin role.',
+                   security='Bearer Auth')
+    @jwt_required
+    @admin_required
+    @orders_ns.expect(update_admin_notes_model, validate=True)
+    @orders_ns.marshal_with(order_model)
+    def put(self, order_id):
+        """Update order admin notes (admin only)"""
+        data = request.json
+        new_notes = data.get('admin_notes', '').strip()
+
+        if not new_notes:
+            orders_ns.abort(400, 'admin_notes is required')
+
+        # Get order
+        order = Order.get_by_id(order_id)
+
+        if not order:
+            orders_ns.abort(404, 'Order not found')
+
+        # Append to existing notes or create new
+        timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+        admin_user = g.current_user
+        formatted_note = f"[{timestamp}] {admin_user.email}: {new_notes}"
+
+        if order.admin_notes:
+            order.admin_notes += f"\n{formatted_note}"
+        else:
+            order.admin_notes = formatted_note
+
+        order.updated_at = datetime.now(timezone.utc)
+        order.save()
+
+        return order.to_dict(), 200

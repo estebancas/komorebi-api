@@ -74,7 +74,7 @@
 - [x] Add admin_required decorator for protected endpoints
 - [x] Add admin payment confirmation endpoint
 - [x] Add admin endpoint to list orders awaiting confirmation
-- [ ] Add order management endpoints for admins (update status, tracking numbers)
+- [x] Add order management endpoints for admins (update status, tracking numbers)
 - [ ] Create inventory reports
 - [ ] Add basic sales analytics
 
