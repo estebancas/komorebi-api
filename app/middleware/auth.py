@@ -38,7 +38,7 @@ def optional_jwt(f):
     def decorated_function(*args, **kwargs):
         token = None
         auth_header = request.headers.get('Authorization')
-        
+
         if auth_header:
             try:
                 token = auth_header.split(' ')[1]
@@ -48,10 +48,30 @@ def optional_jwt(f):
                     g.current_user = user
             except (IndexError, Exception):
                 pass
-        
+
         if not hasattr(g, 'current_user'):
             g.current_user = None
-            
+
         return f(*args, **kwargs)
-    
+
+    return decorated_function
+
+
+def admin_required(f):
+    """
+    Decorator to require admin role for endpoint access.
+    Must be used after @jwt_required decorator.
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Check if user is authenticated (should be set by @jwt_required)
+        if not hasattr(g, 'current_user') or not g.current_user:
+            return jsonify({'error': 'Authentication required'}), 401
+
+        # Check if user has admin role
+        if not g.current_user.has_role_name('admin'):
+            return jsonify({'error': 'Admin access required'}), 403
+
+        return f(*args, **kwargs)
+
     return decorated_function

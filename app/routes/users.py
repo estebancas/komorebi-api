@@ -10,9 +10,10 @@ user_model = users_ns.model('User', {
     'email': fields.String(description='User email'),
     'first_name': fields.String(description='First name'),
     'last_name': fields.String(description='Last name'),
-    'role': fields.String(description='User role'),
-    'created_at': fields.DateTime(description='Creation timestamp'),
-    'updated_at': fields.DateTime(description='Last update timestamp')
+    'role_ids': fields.List(fields.String, description='List of role IDs'),
+    'roles': fields.List(fields.String, description='List of role names (if included)', required=False),
+    'created_at': fields.String(description='Creation timestamp'),
+    'updated_at': fields.String(description='Last update timestamp')
 })
 
 users_list_model = users_ns.model('UsersList', {
@@ -25,17 +26,20 @@ users_list_model = users_ns.model('UsersList', {
 class UserList(Resource):
     @users_ns.doc('list_users')
     @users_ns.marshal_with(users_list_model)
+    @users_ns.param('include_roles', 'Include user roles in response', type=bool, default=False)
     def get(self):
         """Get all users"""
         try:
-            users = User.get_all(True)
-            users_dict = [user.to_dict() for user in users]
+            include_roles = request.args.get('include_roles', 'false').lower() == 'true'
+            users = User.get_all()
+            users_dict = [user.to_dict(include_roles=include_roles) for user in users]
+            print(f'users_dict: {users_dict}')
 
             return {
                 'users': users_dict,
                 'count': len(users_dict)
             }, 200
-            
+
         except Exception:
             users_ns.abort(500, 'Failed to retrieve users')
 

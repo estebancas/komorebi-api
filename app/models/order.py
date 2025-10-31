@@ -20,6 +20,14 @@ class Order:
     STATUS_CANCELLED = 'cancelled'  # Order cancelled by customer or admin
     STATUS_REFUNDED = 'refunded'  # Order refunded
 
+    # Payment method constants
+    PAYMENT_METHOD_CREDIT_CARD = 'credit_card'
+    PAYMENT_METHOD_STRIPE = 'stripe'
+    PAYMENT_METHOD_PAYPAL = 'paypal'
+    PAYMENT_METHOD_SINPE = 'sinpe'  # Costa Rica bank transfer to phone
+    PAYMENT_METHOD_CASH_ON_DELIVERY = 'cash_on_delivery'
+    PAYMENT_METHOD_BANK_TRANSFER = 'bank_transfer'
+
     def __init__(self, user_id: str, order_id: Optional[str] = None,
                  order_number: Optional[str] = None, status: str = STATUS_PENDING):
         self.id = order_id
@@ -43,6 +51,12 @@ class Order:
         self.payment_method = None
         self.payment_status = None
         self.payment_id = None
+
+        # SINPE and manual payment confirmation
+        self.payment_proof_url = None  # URL to proof of payment (screenshot, receipt)
+        self.payment_confirmed = False  # Admin confirmation for manual payments (SINPE, bank transfer)
+        self.payment_confirmed_at = None  # When admin confirmed payment
+        self.payment_confirmed_by = None  # Admin user ID who confirmed payment
 
         # Notes and tracking
         self.customer_notes = None
@@ -81,6 +95,10 @@ class Order:
             'payment_method': self.payment_method,
             'payment_status': self.payment_status,
             'payment_id': self.payment_id,
+            'payment_proof_url': self.payment_proof_url,
+            'payment_confirmed': self.payment_confirmed,
+            'payment_confirmed_at': self.payment_confirmed_at.isoformat() if self.payment_confirmed_at else None,
+            'payment_confirmed_by': self.payment_confirmed_by,
             'customer_notes': self.customer_notes,
             'admin_notes': self.admin_notes,
             'tracking_number': self.tracking_number,
@@ -124,6 +142,13 @@ class Order:
         order.payment_method = data.get('payment_method')
         order.payment_status = data.get('payment_status')
         order.payment_id = data.get('payment_id')
+
+        # Restore SINPE/manual payment confirmation info
+        order.payment_proof_url = data.get('payment_proof_url')
+        order.payment_confirmed = data.get('payment_confirmed', False)
+        order.payment_confirmed_by = data.get('payment_confirmed_by')
+        if data.get('payment_confirmed_at'):
+            order.payment_confirmed_at = datetime.fromisoformat(data['payment_confirmed_at'])
 
         # Restore notes and tracking
         order.customer_notes = data.get('customer_notes')
@@ -375,3 +400,76 @@ class Order:
         order = cls(user_id=user_id)
         order.add_items_from_cart(cart)
         return order
+
+    # SINPE and Manual Payment Management
+
+    def requires_manual_payment_confirmation(self) -> bool:
+        """
+        Check if this order requires manual payment confirmation by admin.
+        Returns True for SINPE, bank transfers, and other manual payment methods.
+        """
+        manual_payment_methods = [
+            self.PAYMENT_METHOD_SINPE,
+            self.PAYMENT_METHOD_BANK_TRANSFER,
+            self.PAYMENT_METHOD_CASH_ON_DELIVERY
+        ]
+        return self.payment_method in manual_payment_methods
+
+    def is_payment_confirmed(self) -> bool:
+        """Check if payment has been confirmed by admin"""
+        return self.payment_confirmed
+
+    def confirm_payment(self, admin_user_id: Optional[str] = None,
+                       notes: Optional[str] = None) -> None:
+        """
+        Confirm payment for orders with manual payment methods (SINPE, bank transfer).
+        Should be called by admin after verifying payment proof.
+
+        Args:
+            admin_user_id: ID of the admin user confirming payment
+            notes: Optional notes about payment confirmation
+        """
+        self.payment_confirmed = True
+        self.payment_confirmed_at = datetime.now(timezone.utc)
+        self.payment_confirmed_by = admin_user_id
+
+        # Mark order as paid
+        if not self.paid_at:
+            self.paid_at = datetime.now(timezone.utc)
+
+        # Update payment status
+        self.payment_status = 'paid'
+
+        # Move order to processing status if still pending
+        if self.status == self.STATUS_PENDING:
+            self.status = self.STATUS_PROCESSING
+
+        # Add confirmation note
+        if notes:
+            confirmation_note = f"Payment confirmed: {notes}"
+            if self.admin_notes:
+                self.admin_notes += f"\n{confirmation_note}"
+            else:
+                self.admin_notes = confirmation_note
+
+        self.updated_at = datetime.now(timezone.utc)
+
+    def set_payment_proof(self, proof_url: str) -> None:
+        """
+        Set the URL to the proof of payment image.
+        Used when customer uploads payment receipt/screenshot.
+
+        Args:
+            proof_url: URL to the uploaded proof of payment image
+        """
+        self.payment_proof_url = proof_url
+        self.updated_at = datetime.now(timezone.utc)
+
+    def is_awaiting_payment_confirmation(self) -> bool:
+        """
+        Check if order is awaiting payment confirmation.
+        True when payment method requires manual confirmation but hasn't been confirmed yet.
+        """
+        return (self.requires_manual_payment_confirmation() and
+                not self.payment_confirmed and
+                self.status == self.STATUS_PENDING)

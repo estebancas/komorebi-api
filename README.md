@@ -28,7 +28,11 @@ komorebi-api/
 │   │   └── jwt_service.py       # JWT utilities
 │   └── middleware/
 │       └── auth.py              # JWT middleware
+├── scripts/
+│   ├── __init__.py              # Scripts package
+│   └── seed_roles.py            # Role management
 ├── app.py                       # Application entry point
+├── kmb.py                       # Management CLI
 ├── requirements.txt             # Python dependencies
 └── serviceAccountKey.json       # Firebase credentials
 ```
@@ -111,6 +115,42 @@ The interactive API documentation (Swagger UI) is available at:
 # Using Gunicorn
 gunicorn -w 4 -b 0.0.0.0:5000 app:app
 ```
+
+## Management CLI
+
+The project includes a management CLI (`kmb.py`) for administrative tasks like role management, data seeding, and more.
+
+### Available Commands
+
+**Get help:**
+```bash
+python kmb.py --help
+```
+
+**Role Management:**
+
+Create a new role:
+```bash
+python kmb.py create-role --role "admin"
+python kmb.py create-role --role "customer"
+python kmb.py create-role -r "manager"  # Short form
+```
+
+List all existing roles:
+```bash
+python kmb.py list-roles
+```
+
+Get help for a specific command:
+```bash
+python kmb.py create-role --help
+```
+
+### Notes
+- Make sure your virtual environment is activated before running CLI commands
+- The CLI will initialize Firebase automatically
+- Role names must be at least 2 characters long
+- Duplicate role names are not allowed
 
 ## API Endpoints
 

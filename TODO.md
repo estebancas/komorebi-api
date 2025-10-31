@@ -50,7 +50,14 @@
 - [x] Add payment method management
 - [x] Prepare payment integration structure (Stripe/PayPal)
 - [x] Add payment status tracking
-- [ ] Support for SINPE/Bank account transactions
+- [x] Add SINPE payment method to Order model
+- [x] Add payment proof URL field for manual payment confirmation
+- [x] Add admin payment confirmation fields and helper methods
+- [x] Update Order API to accept payment_method and payment_proof_url during checkout
+- [x] Create customer endpoint to upload payment proof (PUT /orders/{id}/payment-proof)
+- [x] Create admin endpoint to confirm SINPE/manual payments (PUT /orders/{id}/confirm-payment)
+- [x] Add admin endpoint to list orders awaiting payment confirmation (GET /orders/awaiting-confirmation)
+- [ ] Add image upload functionality for proof of payment (Firebase Storage integration)
 
 ## 📈 Phase 3: Advanced Features
 
@@ -63,8 +70,11 @@
 
 ### Admin & Management
 
-- [ ] Create admin role system
-- [ ] Add order management endpoints for admins
+- [x] Create admin role system (User model has role management)
+- [x] Add admin_required decorator for protected endpoints
+- [x] Add admin payment confirmation endpoint
+- [x] Add admin endpoint to list orders awaiting confirmation
+- [ ] Add order management endpoints for admins (update status, tracking numbers)
 - [ ] Create inventory reports
 - [ ] Add basic sales analytics
 
@@ -126,6 +136,10 @@
 - Payment model (transaction tracking, status management, refunds)
 - Payment method management (saved cards, CRUD API, default management)
 - Payment gateway integration structure (Stripe-ready, PayPal-ready)
+- SINPE payment support (Costa Rica) with manual confirmation workflow
+- Admin role-based access control with admin_required decorator
+- Admin endpoint to confirm manual payments (SINPE, bank transfer, cash on delivery)
+- Admin endpoint to list orders awaiting payment confirmation
 - Flask-RESTX documentation at `/docs/`
 - JWT token authentication
 - Basic error handling
@@ -155,5 +169,5 @@
 
 ---
 
-_Last updated: 29/10/25_
+_Last updated: 30/10/25_
 _Remember to update this file as you complete tasks and add new requirements!_

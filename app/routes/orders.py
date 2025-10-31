@@ -2,7 +2,7 @@ from flask import request, g
 from flask_restx import Namespace, Resource, fields
 from app.models.order import Order
 from app.models.cart import Cart
-from app.middleware.auth import jwt_required, optional_jwt
+from app.middleware.auth import jwt_required, optional_jwt, admin_required
 from app.middleware.guest_session import guest_session_handler, get_cart_identifier
 from datetime import datetime, timezone
 
@@ -44,9 +44,13 @@ order_model = orders_ns.model('Order', {
     'total': fields.Float(description='Order total'),
     'shipping_address': fields.Nested(address_model, description='Shipping address'),
     'billing_address': fields.Nested(address_model, description='Billing address'),
-    'payment_method': fields.String(description='Payment method'),
+    'payment_method': fields.String(description='Payment method (credit_card, stripe, paypal, sinpe, bank_transfer, cash_on_delivery)'),
     'payment_status': fields.String(description='Payment status'),
     'payment_id': fields.String(description='Payment transaction ID'),
+    'payment_proof_url': fields.String(description='URL to proof of payment (for SINPE/manual payments)'),
+    'payment_confirmed': fields.Boolean(description='Whether payment has been confirmed by admin (for manual payments)'),
+    'payment_confirmed_at': fields.DateTime(description='When payment was confirmed by admin'),
+    'payment_confirmed_by': fields.String(description='Admin user ID who confirmed payment'),
     'customer_notes': fields.String(description='Customer notes'),
     'admin_notes': fields.String(description='Admin notes'),
     'tracking_number': fields.String(description='Shipping tracking number'),
@@ -61,7 +65,9 @@ order_model = orders_ns.model('Order', {
 create_order_request_model = orders_ns.model('CreateOrderRequest', {
     'shipping_address': fields.Nested(address_model, required=False, description='Shipping address (required for guest orders with email and phone)'),
     'billing_address': fields.Nested(address_model, required=False, description='Billing address'),
-    'customer_notes': fields.String(required=False, description='Customer notes or special instructions')
+    'customer_notes': fields.String(required=False, description='Customer notes or special instructions'),
+    'payment_method': fields.String(required=False, description='Payment method (credit_card, stripe, paypal, sinpe, bank_transfer, cash_on_delivery)'),
+    'payment_proof_url': fields.String(required=False, description='URL to proof of payment screenshot (for SINPE/manual payments)')
 })
 
 orders_list_model = orders_ns.model('OrdersList', {
@@ -213,6 +219,26 @@ class OrderList(Resource):
             if 'customer_notes' in data:
                 order.customer_notes = data['customer_notes']
 
+            # Add payment method if provided
+            if 'payment_method' in data:
+                payment_method = data['payment_method']
+                # Validate payment method
+                valid_methods = [
+                    Order.PAYMENT_METHOD_CREDIT_CARD,
+                    Order.PAYMENT_METHOD_STRIPE,
+                    Order.PAYMENT_METHOD_PAYPAL,
+                    Order.PAYMENT_METHOD_SINPE,
+                    Order.PAYMENT_METHOD_BANK_TRANSFER,
+                    Order.PAYMENT_METHOD_CASH_ON_DELIVERY
+                ]
+                if payment_method not in valid_methods:
+                    orders_ns.abort(400, f'Invalid payment method. Must be one of: {", ".join(valid_methods)}')
+                order.payment_method = payment_method
+
+            # Add payment proof URL if provided (for SINPE/manual payments)
+            if 'payment_proof_url' in data:
+                order.set_payment_proof(data['payment_proof_url'])
+
             # Save order
             order.save()
 
@@ -231,6 +257,43 @@ class OrderList(Resource):
 
         except Exception as e:
             orders_ns.abort(500, f'Failed to create order: {str(e)}')
+
+
+@orders_ns.route('/awaiting-confirmation')
+class OrdersAwaitingConfirmation(Resource):
+    @orders_ns.doc('list_orders_awaiting_confirmation',
+                   description='Admin endpoint to list all orders awaiting payment confirmation (SINPE, bank transfer, cash on delivery). Requires admin role.',
+                   security='Bearer Auth')
+    @orders_ns.marshal_with(orders_list_model)
+    @jwt_required
+    @admin_required
+    def get(self):
+        """Get orders awaiting payment confirmation (admin only)"""
+        try:
+            # Get all orders with pending status
+            all_pending_orders = Order.get_all(status=Order.STATUS_PENDING)
+
+            # Filter to only those awaiting payment confirmation
+            awaiting_confirmation = [
+                order for order in all_pending_orders
+                if order.is_awaiting_payment_confirmation()
+            ]
+
+            # Sort by created_at (oldest first)
+            awaiting_confirmation.sort(key=lambda x: x.created_at)
+
+            # Convert to dict
+            orders_dict = [order.to_dict() for order in awaiting_confirmation]
+
+            return {
+                'orders': orders_dict,
+                'total': len(orders_dict),
+                'page': 1,
+                'per_page': len(orders_dict)
+            }, 200
+
+        except Exception as e:
+            orders_ns.abort(500, f'Failed to retrieve orders awaiting confirmation: {str(e)}')
 
 
 @orders_ns.route('/<string:order_id>')
@@ -372,3 +435,111 @@ class GuestOrderLookup(Resource):
 
         except Exception as e:
             orders_ns.abort(500, f'Failed to retrieve order: {str(e)}')
+
+
+# Payment proof upload model
+payment_proof_model = orders_ns.model('PaymentProof', {
+    'payment_proof_url': fields.String(required=True, description='URL to uploaded proof of payment image')
+})
+
+
+@orders_ns.route('/<string:order_id>/payment-proof')
+@orders_ns.param('order_id', 'The order identifier')
+class OrderPaymentProof(Resource):
+    @orders_ns.doc('upload_payment_proof',
+                   description='Upload proof of payment for SINPE or manual payment orders. Users and guests can only upload proof for their own orders.')
+    @orders_ns.expect(payment_proof_model, validate=True)
+    @orders_ns.marshal_with(order_model)
+    @optional_jwt
+    @guest_session_handler
+    def put(self, order_id):
+        """Upload proof of payment (authenticated or guest)"""
+        try:
+            data = request.json
+
+            if not data or 'payment_proof_url' not in data:
+                orders_ns.abort(400, 'payment_proof_url is required')
+
+            # Get cart identifier (user_id or guest_session_id)
+            cart_id, is_authenticated = get_cart_identifier()
+
+            # Get order
+            order = Order.get_by_id(order_id)
+
+            if not order:
+                orders_ns.abort(404, 'Order not found')
+
+            # Verify user/guest owns this order
+            if order.user_id != cart_id:
+                orders_ns.abort(403, 'You do not have permission to update this order')
+
+            # Validate that this is a manual payment method
+            if not order.requires_manual_payment_confirmation():
+                orders_ns.abort(400, f'Payment proof is only required for manual payment methods (SINPE, bank transfer, cash on delivery). This order uses: {order.payment_method}')
+
+            # Check if payment is already confirmed
+            if order.is_payment_confirmed():
+                orders_ns.abort(400, 'Payment has already been confirmed by admin')
+
+            # Set payment proof URL
+            order.set_payment_proof(data['payment_proof_url'])
+            order.save()
+
+            return order.to_dict(), 200
+
+        except Exception as e:
+            orders_ns.abort(500, f'Failed to upload payment proof: {str(e)}')
+
+
+# Payment confirmation model (admin only)
+payment_confirmation_model = orders_ns.model('PaymentConfirmation', {
+    'admin_notes': fields.String(required=False, description='Admin notes about payment confirmation')
+})
+
+
+@orders_ns.route('/<string:order_id>/confirm-payment')
+@orders_ns.param('order_id', 'The order identifier')
+class OrderPaymentConfirmation(Resource):
+    @orders_ns.doc('confirm_payment',
+                   description='Admin endpoint to confirm SINPE or manual payment after verifying proof. Requires admin role.',
+                   security='Bearer Auth')
+    @orders_ns.expect(payment_confirmation_model, validate=False)
+    @orders_ns.marshal_with(order_model)
+    @jwt_required
+    @admin_required
+    def put(self, order_id):
+        """Admin confirms payment (admin only)"""
+        try:
+            data = request.json or {}
+            admin_user = g.current_user
+
+            # Get order
+            order = Order.get_by_id(order_id)
+
+            if not order:
+                orders_ns.abort(404, 'Order not found')
+
+            # Validate that this is a manual payment method
+            if not order.requires_manual_payment_confirmation():
+                orders_ns.abort(400, f'This endpoint is only for manual payment methods (SINPE, bank transfer, cash on delivery). This order uses: {order.payment_method}')
+
+            # Check if payment is already confirmed
+            if order.is_payment_confirmed():
+                orders_ns.abort(400, 'Payment has already been confirmed')
+
+            # Check if proof of payment was uploaded
+            if not order.payment_proof_url:
+                orders_ns.abort(400, 'Cannot confirm payment without proof. Customer must upload payment proof first.')
+
+            # Confirm payment
+            admin_notes = data.get('admin_notes')
+            order.confirm_payment(
+                admin_user_id=admin_user.id,
+                notes=admin_notes
+            )
+            order.save()
+
+            return order.to_dict(), 200
+
+        except Exception as e:
+            orders_ns.abort(500, f'Failed to confirm payment: {str(e)}')

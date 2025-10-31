@@ -52,9 +52,9 @@ class User:
 
         if include_sensitive:
             data['password_hash'] = self.password_hash
-        
+
         if include_roles:
-            data['roles'] = [role.to_dict() for role in self.get_roles()]
+            data['roles'] = [role.name for role in self.get_roles()]
 
         return data
 
@@ -152,7 +152,7 @@ class User:
     def get_all(cls, include_roles: bool = False) -> List['User']:
         db = get_db()
         docs = db.collection('users').stream()
-        
+
         users = []
         for doc in docs:
             user = cls.from_dict(doc.to_dict(), doc.id)
@@ -160,5 +160,5 @@ class User:
                 # Pre-populate roles to avoid N+1 queries in API responses
                 user._roles = user.get_roles()
             users.append(user)
-        
+
         return users
