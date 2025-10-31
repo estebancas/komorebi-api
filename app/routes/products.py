@@ -1,6 +1,7 @@
 from flask import request
 from flask_restx import Namespace, Resource, fields
 from app.models.product import Product
+from app.middleware.auth import jwt_required, admin_required
 from datetime import datetime, timezone
 
 products_ns = Namespace('products', description='Product operations', path='/products')
@@ -29,6 +30,8 @@ product_model = products_ns.model('Product', {
     'category': fields.Raw(description='Category details (when included)'),
     'stock': fields.Integer(description='Stock quantity'),
     'requires_selling_stock': fields.Boolean(description='Whether selling stock is required'),
+    'related_product_ids': fields.List(fields.String, description='IDs of related/recommended products'),
+    'related_products': fields.List(fields.Raw, description='Full related product details (when included)'),
     'created_at': fields.DateTime(description='Creation timestamp'),
     'updated_at': fields.DateTime(description='Last update timestamp')
 })
@@ -317,3 +320,81 @@ class ProductItem(Resource):
             
         except Exception:
             products_ns.abort(500, 'Failed to delete product')
+
+
+# Related products model
+related_products_model = products_ns.model('RelatedProducts', {
+    'product_ids': fields.List(fields.String, required=True, description='List of related product IDs')
+})
+
+
+@products_ns.route('/<string:product_id>/related')
+@products_ns.param('product_id', 'The product identifier')
+class ProductRelated(Resource):
+    @products_ns.doc('get_related_products',
+                     description='Get related/recommended products for a specific product')
+    @products_ns.marshal_with(products_list_model)
+    @products_ns.param('limit', 'Maximum number of related products to return', type=int, default=4)
+    def get(self, product_id):
+        """Get related products"""
+        product = Product.get_by_id(product_id)
+
+        if not product:
+            products_ns.abort(404, 'Product not found')
+
+        limit = request.args.get('limit', 4, type=int)
+
+        # Get related products
+        related_products = product.get_related_products(limit=limit)
+
+        # If no manually set related products, suggest products from same category
+        if not related_products:
+            related_products = Product.get_by_category(
+                product.category_id,
+                limit=limit + 1  # +1 to exclude self
+            )
+            # Exclude the current product
+            related_products = [p for p in related_products if p.id != product.id][:limit]
+
+        related_products_dict = [p.to_dict() for p in related_products]
+
+        return {
+            'products': related_products_dict,
+            'pagination': {
+                'page': 1,
+                'per_page': len(related_products_dict),
+                'total': len(related_products_dict),
+                'total_pages': 1,
+                'has_next': False,
+                'has_prev': False
+            },
+            'search': None,
+            'sort': None
+        }, 200
+
+    @products_ns.doc('update_related_products',
+                     description='Admin endpoint to manage related products. Requires admin role.',
+                     security='Bearer Auth')
+    @jwt_required
+    @admin_required
+    @products_ns.expect(related_products_model, validate=True)
+    @products_ns.marshal_with(product_model)
+    def put(self, product_id):
+        """Update related products (admin only)"""
+        product = Product.get_by_id(product_id)
+
+        if not product:
+            products_ns.abort(404, 'Product not found')
+
+        data = request.json
+        product_ids = data.get('product_ids', [])
+
+        # Validate product IDs
+        if not isinstance(product_ids, list):
+            products_ns.abort(400, 'product_ids must be a list')
+
+        # Set related products (method handles validation)
+        product.set_related_products(product_ids)
+        product.save()
+
+        return product.to_dict(include_related=True), 200

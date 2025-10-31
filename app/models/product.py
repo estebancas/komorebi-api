@@ -4,10 +4,11 @@ from app.services.firebase_service import get_db
 
 
 class Product:
-    def __init__(self, name: str, description: str, media: List[Dict[str, str]], 
-                 price: float, track_quantity: bool, weight: Optional[float], 
-                 size: Optional[str], variants: List[Dict[str, Any]], category_id: str, 
-                 stock: int, requires_selling_stock: bool, product_id: Optional[str] = None):
+    def __init__(self, name: str, description: str, media: List[Dict[str, str]],
+                 price: float, track_quantity: bool, weight: Optional[float],
+                 size: Optional[str], variants: List[Dict[str, Any]], category_id: str,
+                 stock: int, requires_selling_stock: bool, product_id: Optional[str] = None,
+                 related_product_ids: Optional[List[str]] = None):
         self.id = product_id
         self.name = name
         self.description = description
@@ -22,8 +23,9 @@ class Product:
         self.updated_at = datetime.now(timezone.utc)
         self.stock = stock
         self.requires_selling_stock = requires_selling_stock
+        self.related_product_ids = related_product_ids or []
 
-    def to_dict(self, include_category: bool = False) -> Dict[str, Any]:
+    def to_dict(self, include_category: bool = False, include_related: bool = False) -> Dict[str, Any]:
         data = {
             'id': self.id,
             'name': self.name,
@@ -38,14 +40,19 @@ class Product:
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
             'stock': self.stock,
-            'requires_selling_stock': self.requires_selling_stock
+            'requires_selling_stock': self.requires_selling_stock,
+            'related_product_ids': self.related_product_ids
         }
-        
+
         if include_category and self.category_id:
             from app.models.category import Category
             category = Category.get_by_id(self.category_id)
             data['category'] = category.to_dict() if category else None
-        
+
+        if include_related and self.related_product_ids:
+            related_products = self.get_related_products()
+            data['related_products'] = [p.to_dict() for p in related_products]
+
         return data
 
     @classmethod
@@ -62,7 +69,8 @@ class Product:
             category_id=data.get('category_id') or data.get('category'),  # Support both old and new format
             stock=data.get('stock', 0),
             requires_selling_stock=data.get('requires_selling_stock', False),
-            product_id=product_id
+            product_id=product_id,
+            related_product_ids=data.get('related_product_ids', [])
         )
 
         if 'created_at' in data:
@@ -196,10 +204,64 @@ class Product:
         """Validate that the product's category exists"""
         if not self.category_id:
             return False
-        
+
         from app.models.category import Category
         category = Category.get_by_id(self.category_id)
         return category is not None and category.is_active
+
+    # Related Products Management
+
+    def get_related_products(self, limit: Optional[int] = None) -> List['Product']:
+        """Get related products for this product"""
+        if not self.related_product_ids:
+            return []
+
+        related_products = []
+        for product_id in self.related_product_ids:
+            product = Product.get_by_id(product_id)
+            if product:  # Only include products that still exist
+                related_products.append(product)
+
+        if limit:
+            related_products = related_products[:limit]
+
+        return related_products
+
+    def add_related_product(self, product_id: str) -> bool:
+        """Add a product to the related products list"""
+        if not product_id or product_id == self.id:
+            return False  # Can't relate to itself
+
+        if product_id in self.related_product_ids:
+            return False  # Already related
+
+        # Verify product exists
+        if not Product.get_by_id(product_id):
+            return False
+
+        self.related_product_ids.append(product_id)
+        self.updated_at = datetime.now(timezone.utc)
+        return True
+
+    def remove_related_product(self, product_id: str) -> bool:
+        """Remove a product from the related products list"""
+        if product_id in self.related_product_ids:
+            self.related_product_ids.remove(product_id)
+            self.updated_at = datetime.now(timezone.utc)
+            return True
+        return False
+
+    def set_related_products(self, product_ids: List[str]) -> bool:
+        """Set the complete list of related products"""
+        # Filter out invalid IDs (self, non-existent products)
+        valid_ids = []
+        for pid in product_ids:
+            if pid and pid != self.id and Product.get_by_id(pid):
+                valid_ids.append(pid)
+
+        self.related_product_ids = valid_ids
+        self.updated_at = datetime.now(timezone.utc)
+        return True
 
     def delete(self) -> bool:
         if not self.id:

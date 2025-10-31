@@ -65,7 +65,7 @@
 
 - [ ] Add product reviews and ratings system
 - [ ] Enhance product variants management
-- [ ] Add related/recommended products
+- [x] Add related/recommended products
 - [ ] Implement product availability status
 
 ### Admin & Management
