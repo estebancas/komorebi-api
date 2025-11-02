@@ -102,34 +102,34 @@ class ProductList(Resource):
             sort_order = request.args.get('sort_order', 'asc').strip().lower()
             category_id = request.args.get('category_id', '').strip()
             include_category = request.args.get('include_category', 'false').lower() == 'true'
-            
+
             if page < 1:
                 products_ns.abort(400, 'Page must be greater than 0')
             if per_page < 1 or per_page > 100:
                 products_ns.abort(400, 'Per page must be between 1 and 100')
-            
+
             valid_sort_fields = ['created_at', 'name', 'price', 'category']
             if sort_by and sort_by not in valid_sort_fields:
                 products_ns.abort(400, f'Invalid sort field. Valid options: {", ".join(valid_sort_fields)}')
-            
+
             if sort_order not in ['asc', 'desc']:
                 products_ns.abort(400, 'Sort order must be "asc" or "desc"')
-            
+
             # Validate category exists if provided
             if category_id:
                 from app.models.category import Category
                 category = Category.get_by_id(category_id)
                 if not category:
                     products_ns.abort(400, 'Category not found')
-            
+
             search_term = search if search else None
             sort_field = sort_by if sort_by else None
             category_filter = category_id if category_id else None
             offset = (page - 1) * per_page
-            
+
             products = Product.get_all(
-                limit=per_page, 
-                offset=offset, 
+                limit=per_page,
+                offset=offset,
                 search=search_term,
                 sort_by=sort_field,
                 sort_order=sort_order,
@@ -137,9 +137,9 @@ class ProductList(Resource):
             )
             total_products = Product.count(search=search_term, category_id=category_filter)
             products_dict = [product.to_dict(include_category=include_category) for product in products]
-            
+
             total_pages = (total_products + per_page - 1) // per_page
-            
+
             response_data = {
                 'products': products_dict,
                 'pagination': {
@@ -151,36 +151,40 @@ class ProductList(Resource):
                     'has_prev': page > 1
                 }
             }
-            
+
             if search_term:
                 response_data['search'] = search_term
             if sort_field:
                 response_data['sort'] = {'by': sort_field, 'order': sort_order}
-            
+
             return response_data, 200
-            
+
         except Exception:
             products_ns.abort(500, 'Failed to retrieve products')
 
-    @products_ns.doc('create_product')
+    @products_ns.doc('create_product',
+                     description='Create a new product (admin only)',
+                     security='Bearer Auth')
+    @jwt_required
+    @admin_required
     @products_ns.expect(product_create_model, validate=True)
     @products_ns.marshal_with(product_model, code=201)
     def post(self):
-        """Create a new product"""
+        """Create a new product (admin only)"""
         data = request.json
-        
+
         if not data:
             products_ns.abort(400, 'No data provided')
-        
+
         # Validate price is positive
         if data['price'] <= 0:
             products_ns.abort(400, 'Price must be greater than 0')
-        
+
         # Validate stock if provided
         stock = data.get('stock', 0)
         if stock < 0:
             products_ns.abort(400, 'Stock cannot be negative')
-        
+
         # Validate category exists
         from app.models.category import Category
         category = Category.get_by_id(data['category_id'])
@@ -188,7 +192,7 @@ class ProductList(Resource):
             products_ns.abort(400, 'Category not found')
         if not category.is_active:
             products_ns.abort(400, 'Category is not active')
-        
+
         try:
             product = Product(
                 name=data['name'],
@@ -203,10 +207,10 @@ class ProductList(Resource):
                 stock=stock,
                 requires_selling_stock=data.get('requires_selling_stock', False)
             )
-            
+
             product.save()
             return product.to_dict(), 201
-            
+
         except Exception:
             products_ns.abort(500, 'Failed to create product')
 
@@ -220,46 +224,50 @@ class ProductItem(Resource):
         """Get a product by ID"""
         try:
             product = Product.get_by_id(product_id)
-            
+
             if not product:
                 products_ns.abort(404, 'Product not found')
-            
+
             return product.to_dict(), 200
-            
+
         except Exception:
             products_ns.abort(500, 'Failed to retrieve product')
 
-    @products_ns.doc('update_product')
+    @products_ns.doc('update_product',
+                     description='Update a product (admin only)',
+                     security='Bearer Auth')
+    @jwt_required
+    @admin_required
     @products_ns.expect(product_update_model, validate=False)
     @products_ns.marshal_with(product_model)
     def put(self, product_id):
-        """Update a product"""
+        """Update a product (admin only)"""
         try:
             product = Product.get_by_id(product_id)
-            
+
             if not product:
                 products_ns.abort(404, 'Product not found')
-            
+
             data = request.json
             if not data:
                 products_ns.abort(400, 'No data provided')
-            
+
             # Update fields if provided
             if 'name' in data:
                 if not data['name']:
                     products_ns.abort(400, 'Name cannot be empty')
                 product.name = data['name']
-                
+
             if 'description' in data:
                 if not data['description']:
                     products_ns.abort(400, 'Description cannot be empty')
                 product.description = data['description']
-                
+
             if 'price' in data:
                 if data['price'] <= 0:
                     products_ns.abort(400, 'Price must be greater than 0')
                 product.price = data['price']
-                
+
             if 'category_id' in data:
                 if not data['category_id']:
                     products_ns.abort(400, 'Category ID cannot be empty')
@@ -271,53 +279,57 @@ class ProductItem(Resource):
                 if not category.is_active:
                     products_ns.abort(400, 'Category is not active')
                 product.category_id = data['category_id']
-                
+
             if 'stock' in data:
                 if data['stock'] < 0:
                     products_ns.abort(400, 'Stock cannot be negative')
                 product.stock = data['stock']
-                
+
             if 'media' in data:
                 product.media = data['media']
-                
+
             if 'track_quantity' in data:
                 product.track_quantity = data['track_quantity']
-                
+
             if 'weight' in data:
                 product.weight = data['weight']
-                
+
             if 'size' in data:
                 product.size = data['size']
-                
+
             if 'variants' in data:
                 product.variants = data['variants']
-                
+
             if 'requires_selling_stock' in data:
                 product.requires_selling_stock = data['requires_selling_stock']
-            
+
             # Update timestamp
             product.updated_at = datetime.now(timezone.utc)
-            
+
             product.save()
             return product.to_dict(), 200
-            
+
         except Exception:
             products_ns.abort(500, 'Failed to update product')
 
-    @products_ns.doc('delete_product')
+    @products_ns.doc('delete_product',
+                     description='Delete a product (admin only)',
+                     security='Bearer Auth')
+    @jwt_required
+    @admin_required
     def delete(self, product_id):
-        """Delete a product"""
+        """Delete a product (admin only)"""
         try:
             product = Product.get_by_id(product_id)
-            
+
             if not product:
                 products_ns.abort(404, 'Product not found')
-            
+
             if product.delete():
                 return {'message': 'Product deleted successfully'}, 200
             else:
                 products_ns.abort(500, 'Failed to delete product')
-            
+
         except Exception:
             products_ns.abort(500, 'Failed to delete product')
 

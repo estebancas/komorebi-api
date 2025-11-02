@@ -20,6 +20,7 @@ def jwt_required(f):
             return {'error': 'Authorization token is required'}, 401
 
         user_id = verify_token(token)
+
         if not user_id:
             return {'error': 'Invalid or expired token'}, 401
 
@@ -69,7 +70,9 @@ def admin_required(f):
             return {'error': 'Authentication required'}, 401
 
         # Check if user has admin role
-        if not g.current_user.has_role_name('admin'):
+        has_admin = g.current_user.has_role_name('admin')
+
+        if not has_admin:
             return {'error': 'Admin access required'}, 403
 
         return f(*args, **kwargs)

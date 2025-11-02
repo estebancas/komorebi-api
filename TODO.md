@@ -39,10 +39,13 @@
 
 ### Enhanced Inventory Management
 
-- [ ] Add stock reservation during checkout
-- [ ] Implement low stock alerts
-- [ ] Add inventory history tracking
-- [ ] Create inventory adjustment endpoints
+- [x] Add inventory history tracking (InventoryTransaction model with full audit trail)
+- [x] Create inventory adjustment endpoints (adjust stock, restock, view history)
+- [x] Implement low stock alerts (GET /inventory/low-stock endpoint)
+- [x] Add admin inventory management endpoints with authentication
+- [x] Integrate inventory logging with order processing
+- [ ] Add stock reservation during checkout (hold stock for pending orders)
+- [ ] Add image upload for payment proof (Firebase Storage)
 
 ### Payment Processing Foundation
 
@@ -75,8 +78,11 @@
 - [x] Add admin payment confirmation endpoint
 - [x] Add admin endpoint to list orders awaiting confirmation
 - [x] Add order management endpoints for admins (update status, tracking numbers)
-- [ ] Create inventory reports
+- [x] Add product management authentication (POST/PUT/DELETE require admin)
+- [x] Create comprehensive inventory management system
+- [ ] Create inventory reports and analytics
 - [ ] Add basic sales analytics
+- [ ] Add dashboard with key metrics
 
 ### Shipping & Tax
 
@@ -103,11 +109,14 @@
 
 ### Security & Performance
 
-- [ ] Add API key authentication for admin endpoints
-- [ ] Implement role-based access control
+- [x] Implement role-based access control (admin_required decorator)
+- [x] Secure product management endpoints (admin-only)
+- [x] Secure inventory endpoints (admin-only)
+- [ ] Add API key authentication for external integrations
 - [ ] Add input sanitization
 - [ ] Optimize database queries
 - [ ] Add caching layer (Redis)
+- [ ] Add rate limiting per user/IP
 
 ### DevOps & Deployment
 
@@ -123,6 +132,7 @@
 
 - User authentication (register/login)
 - Product CRUD with pagination, search, and sorting
+- Product management authentication (admin-only create/update/delete)
 - Category management with CRUD endpoints
 - User management
 - Shopping cart system with CRUD operations
@@ -131,7 +141,7 @@
 - Cart merge on login
 - Order and OrderItem models with status tracking
 - Order management API (create from cart, list, view, cancel)
-- Stock reduction on order creation
+- Stock reduction on order creation with inventory transaction logging
 - User address management (CRUD, multiple addresses, default address, validation)
 - Payment model (transaction tracking, status management, refunds)
 - Payment method management (saved cards, CRUD API, default management)
@@ -140,13 +150,22 @@
 - Admin role-based access control with admin_required decorator
 - Admin endpoint to confirm manual payments (SINPE, bank transfer, cash on delivery)
 - Admin endpoint to list orders awaiting payment confirmation
+- **Inventory Management System:**
+  - InventoryTransaction model for complete audit trail
+  - Admin endpoints for stock adjustment and restocking
+  - Automatic inventory logging on order placement
+  - Low stock monitoring endpoint
+  - Transaction history per product
+  - Support for products with/without stock tracking
 - Flask-RESTX documentation at `/docs/`
 - JWT token authentication
 - Basic error handling
+- Debug logging for authentication troubleshooting
 
 ### 🔄 In Progress
 
--
+- Adding authentication debug logging (completed - ready for removal once verified)
+- Testing inventory management system in production
 
 ## 💡 Notes & Ideas
 
@@ -166,8 +185,12 @@
 - Think about discount codes and promotions system
 - Plan for customer support ticket system integration
 - Setup proper unit-testing
+- Consider stock reservation system for pending orders
+- Add inventory forecasting based on sales trends
+- Implement automated low-stock notifications (email/SMS)
+- Add bulk inventory import/export via CSV
 
 ---
 
-_Last updated: 30/10/25_
+_Last updated: 01/11/25_
 _Remember to update this file as you complete tasks and add new requirements!_

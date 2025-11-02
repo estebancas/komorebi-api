@@ -374,7 +374,8 @@ class Order:
                 })
                 continue
 
-            if product.track_quantity:
+            # Only reduce stock if product requires it
+            if product.track_quantity and product.requires_selling_stock:
                 if product.stock < item.quantity:
                     issues.append({
                         'item_id': item.id,
@@ -385,9 +386,19 @@ class Order:
                         'issue': 'Insufficient stock'
                     })
                 else:
-                    # Reduce stock
+                    # Reduce stock and create inventory transaction
+                    from app.models.inventory import InventoryTransaction
+
                     product.stock -= item.quantity
                     product.save()
+
+                    # Log inventory transaction for audit trail
+                    InventoryTransaction.create_sale_transaction(
+                        product_id=product.id,
+                        quantity=item.quantity,
+                        order_id=self.id,
+                        created_by=self.user_id
+                    )
 
         return issues
 

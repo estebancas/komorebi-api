@@ -10,7 +10,6 @@ def get_or_create_guest_session():
     """
     # Check if guest_session_id exists in cookie
     guest_session_id = request.cookies.get('guest_session_id')
-    print(f"[DEBUG] get_or_create_guest_session: {guest_session_id}")
 
     if not guest_session_id:
         # Generate new guest session ID
@@ -30,12 +29,10 @@ def guest_session_handler(f):
         # Get or create guest session
         guest_session_id = get_or_create_guest_session()
         g.guest_session_id = guest_session_id
-        print(f"[DEBUG] guest_session_handler: Set g.guest_session_id = {guest_session_id}")
 
         # Mark if we need to set the cookie
         if not request.cookies.get('guest_session_id'):
             g.set_guest_cookie = True
-            print(f"[DEBUG] guest_session_handler: Marked to set cookie")
         else:
             g.set_guest_cookie = False
 

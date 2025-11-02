@@ -67,25 +67,24 @@ class CategoryList(Resource):
         try:
             active_only = request.args.get('active_only', 'true').lower() == 'true'
             parent_id = request.args.get('parent_id')
-            
+
             # Handle "null" string for root categories
             if parent_id == 'null':
                 parent_id = None
-            
+
             if parent_id is not None:
                 categories = Category.get_by_parent(parent_id, active_only)
             else:
                 categories = Category.get_all(active_only)
-            
+
             categories_dict = [category.to_dict() for category in categories]
-            
+
             return {
                 'categories': categories_dict,
                 'count': len(categories_dict)
             }, 200
-            
+
         except Exception as e:
-            print(f"Categories GET error: {str(e)}")
             categories_ns.abort(500, f'Failed to retrieve categories: {str(e)}')
 
     @categories_ns.doc('create_category')
@@ -94,20 +93,20 @@ class CategoryList(Resource):
     def post(self):
         """Create a new category"""
         data = request.json
-        
+
         if not data:
             categories_ns.abort(400, 'No data provided')
-        
+
         # Validate category name
         if not Category.validate_name(data['name']):
             categories_ns.abort(400, 'Category name must be between 2 and 100 characters')
-        
+
         # Check if parent category exists (if provided)
         if data.get('parent_id'):
             parent = Category.get_by_id(data['parent_id'])
             if not parent:
                 categories_ns.abort(400, 'Parent category not found')
-        
+
         try:
             category = Category(
                 name=data['name'],
@@ -116,12 +115,11 @@ class CategoryList(Resource):
                 slug=data.get('slug'),
                 is_active=data.get('is_active', True)
             )
-            
+
             category.save()
             return category.to_dict(), 201
-            
+
         except Exception as e:
-            print(f"Category CREATE error: {str(e)}")
             categories_ns.abort(500, f'Failed to create category: {str(e)}')
 
 
@@ -135,12 +133,12 @@ class CategoryHierarchy(Resource):
         try:
             active_only = request.args.get('active_only', 'true').lower() == 'true'
             hierarchy = Category.get_hierarchy(active_only)
-            
+
             return {
                 'categories': hierarchy,
                 'count': Category.count(active_only)
             }, 200
-            
+
         except Exception:
             categories_ns.abort(500, 'Failed to retrieve category hierarchy')
 
@@ -154,12 +152,12 @@ class CategoryItem(Resource):
         """Get a category by ID"""
         try:
             category = Category.get_by_id(category_id)
-            
+
             if not category:
                 categories_ns.abort(404, 'Category not found')
-            
+
             return category.to_dict(), 200
-            
+
         except Exception:
             categories_ns.abort(500, 'Failed to retrieve category')
 
@@ -170,23 +168,23 @@ class CategoryItem(Resource):
         """Update a category"""
         try:
             category = Category.get_by_id(category_id)
-            
+
             if not category:
                 categories_ns.abort(404, 'Category not found')
-            
+
             data = request.json
             if not data:
                 categories_ns.abort(400, 'No data provided')
-            
+
             # Update fields if provided
             if 'name' in data:
                 if not Category.validate_name(data['name']):
                     categories_ns.abort(400, 'Category name must be between 2 and 100 characters')
                 category.name = data['name']
-                
+
             if 'description' in data:
                 category.description = data['description']
-                
+
             if 'parent_id' in data:
                 parent_id = data['parent_id']
                 if parent_id and parent_id == category.id:
@@ -196,19 +194,19 @@ class CategoryItem(Resource):
                     if not parent:
                         categories_ns.abort(400, 'Parent category not found')
                 category.parent_id = parent_id
-                
+
             if 'slug' in data:
                 category.slug = data['slug']
-                
+
             if 'is_active' in data:
                 category.is_active = data['is_active']
-            
+
             # Update timestamp
             category.updated_at = datetime.now(timezone.utc)
-            
+
             category.save()
             return category.to_dict(), 200
-            
+
         except Exception:
             categories_ns.abort(500, 'Failed to update category')
 
@@ -217,15 +215,15 @@ class CategoryItem(Resource):
         """Delete a category (soft delete - marks as inactive)"""
         try:
             category = Category.get_by_id(category_id)
-            
+
             if not category:
                 categories_ns.abort(404, 'Category not found')
-            
+
             if category.delete():
                 return {'message': 'Category deleted successfully'}, 200
             else:
                 categories_ns.abort(500, 'Failed to delete category')
-            
+
         except Exception:
             categories_ns.abort(500, 'Failed to delete category')
 
@@ -239,12 +237,12 @@ class CategoryBySlug(Resource):
         """Get a category by slug"""
         try:
             category = Category.get_by_slug(slug)
-            
+
             if not category:
                 categories_ns.abort(404, 'Category not found')
-            
+
             return category.to_dict(), 200
-            
+
         except Exception:
             categories_ns.abort(500, 'Failed to retrieve category')
 
@@ -257,10 +255,10 @@ class CategoryHardDelete(Resource):
         """Permanently delete a category (use with caution!)"""
         try:
             category = Category.get_by_id(category_id)
-            
+
             if not category:
                 categories_ns.abort(404, 'Category not found')
-            
+
             try:
                 if category.hard_delete():
                     return {'message': 'Category permanently deleted'}, 200
@@ -268,6 +266,6 @@ class CategoryHardDelete(Resource):
                     categories_ns.abort(500, 'Failed to permanently delete category')
             except ValueError as e:
                 categories_ns.abort(400, str(e))
-            
+
         except Exception:
             categories_ns.abort(500, 'Failed to delete category')

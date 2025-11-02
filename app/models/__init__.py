@@ -9,5 +9,6 @@ from app.models.order_item import OrderItem
 from app.models.address import Address
 from app.models.payment import Payment
 from app.models.payment_method import PaymentMethod
+from app.models.inventory import InventoryTransaction
 
-__all__ = ['User', 'Role', 'Product', 'Category', 'Cart', 'CartItem', 'Order', 'OrderItem', 'Address', 'Payment', 'PaymentMethod']
+__all__ = ['User', 'Role', 'Product', 'Category', 'Cart', 'CartItem', 'Order', 'OrderItem', 'Address', 'Payment', 'PaymentMethod', 'InventoryTransaction']

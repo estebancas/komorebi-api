@@ -103,40 +103,40 @@ class Product:
         return None
 
     @classmethod
-    def get_all(cls, limit: Optional[int] = None, offset: Optional[int] = None, 
-                search: Optional[str] = None, sort_by: Optional[str] = None, 
+    def get_all(cls, limit: Optional[int] = None, offset: Optional[int] = None,
+                search: Optional[str] = None, sort_by: Optional[str] = None,
                 sort_order: str = 'asc', category_id: Optional[str] = None) -> list['Product']:
         db = get_db()
         query = db.collection('products')
-        
+
         docs = query.stream()
         products = [cls.from_dict(doc.to_dict(), doc.id) for doc in docs]
-        
+
         # Filter by category if specified
         if category_id:
             products = [product for product in products if product.category_id == category_id]
-        
+
         # Search functionality with category name lookup
         if search:
             search_lower = search.lower()
             from app.models.category import Category
             filtered_products = []
-            
+
             for product in products:
                 # Search in product name and description
-                if (search_lower in product.name.lower() or 
+                if (search_lower in product.name.lower() or
                     search_lower in product.description.lower()):
                     filtered_products.append(product)
                     continue
-                
+
                 # Search in category name
                 if product.category_id:
                     category = Category.get_by_id(product.category_id)
                     if category and search_lower in category.name.lower():
                         filtered_products.append(product)
-            
+
             products = filtered_products
-        
+
         # Sorting with category support
         if sort_by:
             reverse_order = sort_order.lower() == 'desc'
@@ -154,45 +154,45 @@ class Product:
                         return category.name.lower() if category else ''
                     return ''
                 products.sort(key=get_category_name, reverse=reverse_order)
-        
+
         if offset:
             products = products[offset:]
         if limit:
             products = products[:limit]
-            
+
         return products
-    
+
     @classmethod
     def count(cls, search: Optional[str] = None, category_id: Optional[str] = None) -> int:
         db = get_db()
         docs = db.collection('products').stream()
         products = [cls.from_dict(doc.to_dict(), doc.id) for doc in docs]
-        
+
         # Filter by category if specified
         if category_id:
             products = [product for product in products if product.category_id == category_id]
-        
+
         # Apply search filter
         if search:
             search_lower = search.lower()
             from app.models.category import Category
             filtered_products = []
-            
+
             for product in products:
                 # Search in product name and description
-                if (search_lower in product.name.lower() or 
+                if (search_lower in product.name.lower() or
                     search_lower in product.description.lower()):
                     filtered_products.append(product)
                     continue
-                
+
                 # Search in category name
                 if product.category_id:
                     category = Category.get_by_id(product.category_id)
                     if category and search_lower in category.name.lower():
                         filtered_products.append(product)
-            
+
             products = filtered_products
-        
+
         return len(products)
 
     @classmethod
@@ -262,6 +262,74 @@ class Product:
         self.related_product_ids = valid_ids
         self.updated_at = datetime.now(timezone.utc)
         return True
+
+    # Inventory Management Methods
+
+    def has_sufficient_stock(self, quantity: int) -> bool:
+        """
+        Check if product has sufficient stock for the requested quantity.
+
+        Returns True if:
+        - Product doesn't require stock tracking (requires_selling_stock = False)
+        - Product has enough stock
+        """
+        if not self.requires_selling_stock:
+            return True
+        return self.stock >= quantity
+
+    def is_low_stock(self, threshold: int = 10) -> bool:
+        """
+        Check if product stock is below the threshold.
+        Only relevant for products that require stock tracking.
+        """
+        if not self.requires_selling_stock:
+            return False
+        return self.stock < threshold
+
+    def reduce_stock(self, quantity: int) -> bool:
+        """
+        Reduce stock by the given quantity.
+        Returns True if successful, False if insufficient stock.
+
+        Note: This method does NOT create inventory transactions.
+        Use InventoryTransaction methods for full audit trail.
+        """
+        if not self.requires_selling_stock:
+            return True  # No stock tracking needed
+
+        if self.stock < quantity:
+            return False
+
+        self.stock -= quantity
+        self.updated_at = datetime.now(timezone.utc)
+        return True
+
+    def increase_stock(self, quantity: int) -> bool:
+        """
+        Increase stock by the given quantity.
+
+        Note: This method does NOT create inventory transactions.
+        Use InventoryTransaction methods for full audit trail.
+        """
+        if not self.requires_selling_stock:
+            return True  # No stock tracking needed
+
+        self.stock += quantity
+        self.updated_at = datetime.now(timezone.utc)
+        return True
+
+    def get_stock_info(self, low_stock_threshold: int = 10) -> Dict[str, Any]:
+        """Get comprehensive stock information for this product"""
+        return {
+            'product_id': self.id,
+            'product_name': self.name,
+            'current_stock': self.stock,
+            'requires_selling_stock': self.requires_selling_stock,
+            'track_quantity': self.track_quantity,
+            'is_low_stock': self.is_low_stock(low_stock_threshold),
+            'low_stock_threshold': low_stock_threshold,
+            'is_available': self.has_sufficient_stock(1)
+        }
 
     def delete(self) -> bool:
         if not self.id:

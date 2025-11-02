@@ -6,7 +6,7 @@ from app.middleware.auth import jwt_required
 
 def create_app():
     app = Flask(__name__)
-    
+
     # Configure Flask-RESTX
     api = Api(
         app,
@@ -28,6 +28,7 @@ def create_app():
     from app.routes.orders import orders_ns
     from app.routes.addresses import addresses_ns
     from app.routes.payment_methods import payment_methods_ns
+    from app.routes.inventory import inventory_ns
 
     api.add_namespace(auth_ns)
     api.add_namespace(products_ns)
@@ -37,6 +38,7 @@ def create_app():
     api.add_namespace(orders_ns)
     api.add_namespace(addresses_ns)
     api.add_namespace(payment_methods_ns)
+    api.add_namespace(inventory_ns)
 
     @app.route('/health')
     def health_check():
@@ -56,7 +58,6 @@ def create_app():
         """Set guest session cookie if needed after response is ready"""
         if hasattr(g, 'set_guest_cookie') and g.set_guest_cookie:
             if hasattr(g, 'guest_session_id'):
-                print(f"[DEBUG] after_request: Setting guest cookie: {g.guest_session_id}")
                 response.set_cookie(
                     'guest_session_id',
                     g.guest_session_id,

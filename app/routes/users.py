@@ -33,7 +33,6 @@ class UserList(Resource):
             include_roles = request.args.get('include_roles', 'false').lower() == 'true'
             users = User.get_all()
             users_dict = [user.to_dict(include_roles=include_roles) for user in users]
-            print(f'users_dict: {users_dict}')
 
             return {
                 'users': users_dict,
