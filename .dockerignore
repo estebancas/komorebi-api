@@ -1,0 +1,66 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual Environment
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment files (never include in image)
+.env
+.env.local
+.env.*.local
+.env.example
+
+# Firebase credentials (never include in image)
+serviceAccountKey.json
+*serviceAccountKey*.json
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+tests/
+*.test.py
+
+# Documentation
+*.md
+docs/
+TODO.md
+CLAUDE.md
+SINPE_API_EXAMPLES.md
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Logs
+*.log
+logs/
+
+# Other
+.editorconfig
+Makefile

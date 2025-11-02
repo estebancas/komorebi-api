@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  # Main API service
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: komorebi-api
+    ports:
+      - "8080:8080"
+    environment:
+      # Flask settings
+      - FLASK_ENV=development
+
+      # Firebase credentials (loaded from .env file)
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - FIREBASE_PRIVATE_KEY_ID=${FIREBASE_PRIVATE_KEY_ID}
+      - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY}
+      - FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL}
+      - FIREBASE_CLIENT_ID=${FIREBASE_CLIENT_ID}
+      - FIREBASE_AUTH_URI=${FIREBASE_AUTH_URI}
+      - FIREBASE_TOKEN_URI=${FIREBASE_TOKEN_URI}
+
+      # JWT Secret
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+
+    env_file:
+      - .env
+
+    volumes:
+      # Mount source code for development (hot reload)
+      - .:/app
+      # Exclude node_modules and venv from mounting
+      - /app/venv
+      - /app/__pycache__
+
+    command: gunicorn --bind 0.0.0.0:8080 --workers 2 --reload --access-logfile - --error-logfile - run:app
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+# Networks (optional, for multi-container setups)
+networks:
+  default:
+    name: komorebi-network
