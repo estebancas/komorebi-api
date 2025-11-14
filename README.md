@@ -1,5 +1,8 @@
 # 🕯️ Komorebi API - E-commerce Candle Shop
 
+[![CI](https://github.com/YOUR_USERNAME/komorebi-api/workflows/CI%20-%20Tests%20and%20Linting/badge.svg)](https://github.com/YOUR_USERNAME/komorebi-api/actions)
+[![Docker](https://github.com/YOUR_USERNAME/komorebi-api/workflows/Docker%20Build%20and%20Push/badge.svg)](https://github.com/YOUR_USERNAME/komorebi-api/actions)
+
 A Flask-based REST API for a candle e-commerce shop, built with Python and Firebase Firestore.
 
 ## 🚀 Tech Stack
@@ -10,6 +13,8 @@ A Flask-based REST API for a candle e-commerce shop, built with Python and Fireb
 - **Authentication**: JWT tokens + bcrypt
 - **Deployment**: Docker + Docker Compose
 - **Production Server**: Gunicorn WSGI
+- **CI/CD**: GitHub Actions (automated builds & tests)
+- **Container Registry**: GitHub Container Registry (GHCR)
 - **Features**: Inventory Management, Order Processing, Payment Integration (SINPE)
 
 ## 🐳 Quick Start (Docker - Recommended)
@@ -27,9 +32,9 @@ nano .env  # or use your preferred editor
 docker-compose up --build
 
 # 4. Access the API
-# - API: http://localhost:8080
-# - Health Check: http://localhost:8080/health
-# - API Docs: http://localhost:8080/docs/
+# - API: http://localhost:8082
+# - Health Check: http://localhost:8082/health
+# - API Docs: http://localhost:8082/docs/
 ```
 
 **For detailed Docker setup**, see [DOCKER_QUICKSTART.md](DOCKER_QUICKSTART.md)
@@ -208,8 +213,8 @@ python kmb.py create-role --help
 
 Once the application is running, access the interactive API documentation:
 
-- **Swagger UI**: http://localhost:8080/docs/
-- **Health Check**: http://localhost:8080/health
+- **Swagger UI**: http://localhost:8082/docs/
+- **Health Check**: http://localhost:8082/health
 
 ### Key Features
 
@@ -287,8 +292,8 @@ docker-compose logs api
 # Verify .env file exists
 ls -la .env
 
-# Ensure port 8080 is free
-lsof -i :8080
+# Ensure port 8082 is free
+lsof -i :8082
 ```
 
 **Firebase connection errors:**
@@ -312,7 +317,7 @@ lsof -i :8080
 2. **Port Already in Use**:
 
    - Change port in `app.py` or `docker-compose.yml`
-   - Or kill the process: `lsof -i :8080` then `kill <PID>`
+   - Or kill the process: `lsof -i :8082` then `kill <PID>`
 
 3. **Import Errors**:
 
@@ -330,8 +335,27 @@ lsof -i :8080
 
 - [DOCKER_QUICKSTART.md](DOCKER_QUICKSTART.md) - Quick Docker setup guide
 - [DEPLOYMENT.md](DEPLOYMENT.md) - Comprehensive deployment guide for cloud platforms
+- [GITHUB_ACTIONS.md](GITHUB_ACTIONS.md) - CI/CD workflows and automation setup
 - [TODO.md](TODO.md) - Development roadmap and feature tracking
 - [CLAUDE.md](CLAUDE.md) - Project context and development guidelines
+
+---
+
+## 🤖 CI/CD & Automation
+
+This project includes automated GitHub Actions workflows:
+
+- **✅ Continuous Integration**: Automated testing, linting, and security checks
+- **🐳 Docker Builds**: Automatic image builds pushed to GitHub Container Registry
+- **🚀 Deployment**: Ready-to-use Render deployment workflow (template included)
+
+**See [GITHUB_ACTIONS.md](GITHUB_ACTIONS.md)** for complete setup instructions.
+
+### Quick CI/CD Setup
+
+1. **Push to GitHub** - Workflows run automatically
+2. **View Actions** - Check the Actions tab in your repo
+3. **Access Images** - Docker images available at `ghcr.io/<your-username>/komorebi-api`
 
 ---
 

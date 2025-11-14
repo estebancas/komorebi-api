@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   # Main API service
@@ -8,7 +8,7 @@ services:
       dockerfile: Dockerfile
     container_name: komorebi-api
     ports:
-      - "8080:8080"
+      - "8082:8080"
     environment:
       # Flask settings
       - FLASK_ENV=development
@@ -24,6 +24,12 @@ services:
 
       # JWT Secret
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+
+      # AWS S3 Configuration
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME}
+      - AWS_REGION=${AWS_REGION}
 
     env_file:
       - .env

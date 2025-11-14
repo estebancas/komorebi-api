@@ -35,10 +35,10 @@ docker-compose up -d
 ### 4. Test your API
 ```bash
 # Health check
-curl http://localhost:8080/health
+curl http://localhost:8082/health
 
 # API docs
-open http://localhost:8080/docs/
+open http://localhost:8082/docs/
 ```
 
 ## 📝 Common Commands
@@ -64,7 +64,7 @@ docker-compose exec api /bin/bash
 
 - **Deploy to cloud**: See [DEPLOYMENT.md](DEPLOYMENT.md)
 - **Configure admin user**: Add `roles: ["admin"]` to user in Firestore
-- **Test endpoints**: Use Swagger UI at http://localhost:8080/docs/
+- **Test endpoints**: Use Swagger UI at http://localhost:8082/docs/
 
 ## 🔐 Security Checklist
 
@@ -83,8 +83,8 @@ docker-compose logs api
 # Verify .env file exists
 ls -la .env
 
-# Check port 8080 isn't in use
-lsof -i :8080
+# Check port 8082 isn't in use
+lsof -i :8082
 ```
 
 **Firebase errors?**

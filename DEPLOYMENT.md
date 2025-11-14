@@ -42,9 +42,9 @@ This guide covers deploying the Komorebi Candle Shop API using Docker and variou
    ```
 
 4. **Access the API:**
-   - API: http://localhost:8080
-   - Health check: http://localhost:8080/health
-   - API docs: http://localhost:8080/docs/
+   - API: http://localhost:8082
+   - Health check: http://localhost:8082/health
+   - API docs: http://localhost:8082/docs/
 
 ### Production Docker Build
 
@@ -55,7 +55,7 @@ docker build -t komorebi-api:latest .
 # Run the container
 docker run -d \
   --name komorebi-api \
-  -p 8080:8080 \
+  -p 8082:8080 \
   --env-file .env \
   komorebi-api:latest
 
@@ -393,9 +393,9 @@ docker logs komorebi-api
 ### Health check failing
 ```bash
 # Test locally
-curl http://localhost:8080/health
+curl http://localhost:8082/health
 
-# Check if app is binding to correct port (8080)
+# Check if app is binding to correct port (8080 inside container)
 ```
 
 ### Firebase connection errors
