@@ -37,6 +37,83 @@ The project serves a **dual purpose**:
 - flask
 - flask-restx (for API documentation and validation)
 - firestore
+- boto3 (AWS SDK for S3 file storage)
+
+## Cloud Storage Configuration
+
+### AWS S3 Setup
+
+The application uses AWS S3 for secure image storage with a security-first approach. The backend server has full control over file operations, while direct client access to S3 is completely blocked.
+
+#### IAM User Configuration
+
+- **Access Type**: Programmatic access only (no AWS Console access)
+- **Purpose**: Dedicated service account for the Python backend to interact with S3
+- **Credentials**: Stored as environment variables, never committed to version control
+
+#### IAM Policy (Minimalist Permissions)
+
+A custom IAM policy is attached to the user with the least privileges necessary:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::<my-bucket-name>/*"
+    }
+  ]
+}
+```
+
+**Key Points**:
+- Only three operations allowed: upload, read, and delete
+- No bucket-level permissions (cannot list, create, or delete buckets)
+- Scoped to a specific bucket using ARN
+- Cannot modify bucket settings or permissions
+
+#### S3 Bucket Security
+
+- **Block Public Access**: All four Block Public Access settings are enabled at the bucket level
+  - Block public access to buckets and objects granted through new ACLs
+  - Block public access to buckets and objects granted through any ACLs
+  - Block public access to buckets and objects granted through new public bucket or access point policies
+  - Block public and cross-account access to buckets and objects through any public bucket or access point policies
+- **Object-level ACLs**: Individual objects can be marked as `public-read` when uploaded (via `boto3.upload_fileobj()`)
+- **Result**: The bucket itself is private, but specific images can be made publicly accessible via their URLs
+
+#### Backend Implementation
+
+**Environment Variables** (configured in `.env`):
+```bash
+AWS_ACCESS_KEY_ID=<IAM_user_access_key>
+AWS_SECRET_ACCESS_KEY=<IAM_user_secret_key>
+AWS_S3_BUCKET_NAME=<bucket_name>
+AWS_REGION=<region>  # e.g., us-east-1
+```
+
+**File Upload Flow**:
+1. Frontend (Next.js) sends image file to Python backend endpoint
+2. Backend validates file type and size
+3. Backend generates secure, unique filename (UUID-based)
+4. Backend uploads to S3 using `boto3.upload_fileobj()`
+5. Backend returns public URL to frontend
+6. Backend stores image URL in Firestore database
+
+**Security Benefits**:
+- Frontend **never** has direct S3 credentials or access
+- All file validation happens server-side
+- Prevents malicious uploads or unauthorized deletions
+- Centralized control over file naming and organization
+- Easy to audit and log all file operations
+
+**Code Reference**: See [app/services/s3_service.py](app/services/s3_service.py) for the complete implementation.
 
 ## API Development Standards
 
